@@ -29,15 +29,34 @@ class GarminBaseModel(BaseModel):
 
 
 def parse_garmin_timestamp(timestamp: int | str | None) -> datetime | None:
-    """Parse Garmin timestamp (milliseconds since epoch) to datetime."""
+    """Parse Garmin timestamp to datetime.
+    
+    Handles multiple formats:
+    - Integer milliseconds since epoch (e.g., 1777952668000)
+    - String milliseconds (e.g., "1777952668000")
+    - ISO datetime strings (e.g., "2026-05-05 05:44:28")
+    - None values
+    """
     if timestamp is None:
         return None
+    
     if isinstance(timestamp, str):
+        # Try parsing as integer milliseconds first
         try:
-            timestamp = int(timestamp)
+            timestamp_int = int(timestamp)
+            return datetime.fromtimestamp(timestamp_int / 1000)
         except ValueError:
-            return None
-    # Garmin uses milliseconds
+            pass
+        
+        # Try parsing as ISO datetime string (e.g., "2026-05-05 05:44:28")
+        try:
+            return datetime.fromisoformat(timestamp)
+        except ValueError:
+            pass
+        
+        return None
+    
+    # Numeric timestamps are in milliseconds
     return datetime.fromtimestamp(timestamp / 1000)
 
 

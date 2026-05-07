@@ -161,9 +161,26 @@ class Activity(GarminBaseModel):
 
     @classmethod
     def from_garmin_response(cls, data: dict[str, Any]) -> "Activity":
-        """Parse activity from Garmin API response."""
+        """Parse activity from Garmin API response.
+        
+        Handles two response formats:
+        1. Search results (/activitylist-service/activities/search/activities):
+           - Flat structure with fields at top level
+        2. Single activity (/activity-service/activity/{id}):
+           - Nested structure with most fields in summaryDTO
+        """
+        # Helper to get value from either top level or nested in summaryDTO
+        def get_field(key: str, default=None):
+            """Get field from top level or summaryDTO."""
+            if key in data:
+                return data[key]
+            summary = data.get("summaryDTO", {})
+            if key in summary:
+                return summary[key]
+            return default
+        
         # Handle nested activity type
-        activity_type_data = data.get("activityType", {})
+        activity_type_data = data.get("activityType") or data.get("activityTypeDTO", {})
         if isinstance(activity_type_data, dict):
             activity_type = activity_type_data.get("typeKey", "other")
         else:
@@ -174,40 +191,40 @@ class Activity(GarminBaseModel):
             activity_name=data.get("activityName", ""),
             activity_type=activity_type,
             activity_type_key=data.get("activityTypeKey", activity_type),
-            start_time=parse_garmin_timestamp(data.get("startTimeLocal")),
-            start_time_gmt=parse_garmin_timestamp(data.get("startTimeGMT")),
-            duration_seconds=data.get("duration", 0.0),
-            elapsed_duration=data.get("elapsedDuration", 0.0),
-            moving_duration=data.get("movingDuration", 0.0),
-            distance_meters=data.get("distance", 0.0),
-            avg_speed=data.get("averageSpeed"),
-            max_speed=data.get("maxSpeed"),
-            avg_heart_rate=data.get("averageHR"),
-            max_heart_rate=data.get("maxHR"),
-            min_heart_rate=data.get("minHR"),
-            calories=data.get("calories", 0.0),
-            active_calories=data.get("activeCalories", 0.0),
-            elevation_gain=data.get("elevationGain"),
-            elevation_loss=data.get("elevationLoss"),
-            min_elevation=data.get("minElevation"),
-            max_elevation=data.get("maxElevation"),
-            avg_cadence=data.get("averageRunningCadenceInStepsPerMinute"),
-            max_cadence=data.get("maxRunningCadenceInStepsPerMinute"),
-            avg_power=data.get("avgPower"),
-            max_power=data.get("maxPower"),
-            normalized_power=data.get("normPower"),
-            aerobic_training_effect=data.get("aerobicTrainingEffect"),
-            anaerobic_training_effect=data.get("anaerobicTrainingEffect"),
-            training_effect_label=data.get("trainingEffectLabel"),
-            start_latitude=data.get("startLatitude"),
-            start_longitude=data.get("startLongitude"),
-            end_latitude=data.get("endLatitude"),
-            end_longitude=data.get("endLongitude"),
-            steps=data.get("steps"),
-            avg_stroke_count=data.get("avgStrokes"),
-            total_strokes=data.get("strokes"),
-            pool_length=data.get("poolLength"),
-            avg_swolf=data.get("avgSwolf"),
+            start_time=parse_garmin_timestamp(get_field("startTimeLocal")),
+            start_time_gmt=parse_garmin_timestamp(get_field("startTimeGMT")),
+            duration_seconds=get_field("duration", 0.0),
+            elapsed_duration=get_field("elapsedDuration", 0.0),
+            moving_duration=get_field("movingDuration", 0.0),
+            distance_meters=get_field("distance", 0.0),
+            avg_speed=get_field("averageSpeed"),
+            max_speed=get_field("maxSpeed"),
+            avg_heart_rate=get_field("averageHR"),
+            max_heart_rate=get_field("maxHR"),
+            min_heart_rate=get_field("minHR"),
+            calories=get_field("calories", 0.0),
+            active_calories=get_field("activeCalories", 0.0),
+            elevation_gain=get_field("elevationGain"),
+            elevation_loss=get_field("elevationLoss"),
+            min_elevation=get_field("minElevation"),
+            max_elevation=get_field("maxElevation"),
+            avg_cadence=get_field("averageRunningCadenceInStepsPerMinute"),
+            max_cadence=get_field("maxRunningCadenceInStepsPerMinute"),
+            avg_power=get_field("avgPower"),
+            max_power=get_field("maxPower"),
+            normalized_power=get_field("normPower"),
+            aerobic_training_effect=get_field("aerobicTrainingEffect"),
+            anaerobic_training_effect=get_field("anaerobicTrainingEffect"),
+            training_effect_label=get_field("trainingEffectLabel"),
+            start_latitude=get_field("startLatitude"),
+            start_longitude=get_field("startLongitude"),
+            end_latitude=get_field("endLatitude"),
+            end_longitude=get_field("endLongitude"),
+            steps=get_field("steps"),
+            avg_stroke_count=get_field("avgStrokes"),
+            total_strokes=get_field("strokes"),
+            pool_length=get_field("poolLength"),
+            avg_swolf=get_field("avgSwolf"),
             device_id=data.get("deviceId"),
             raw_data=data,
         )
