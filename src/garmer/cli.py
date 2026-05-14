@@ -797,7 +797,228 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_update(args: argparse.Namespace) -> int:
+def cmd_training_plans(args: argparse.Namespace) -> int:
+    """Handle training plans command - list active plans."""
+    try:
+        client = GarminClient.from_saved_tokens()
+    except AuthenticationError:
+        print("Not logged in. Use 'garmer login' first.", file=sys.stderr)
+        return 1
+
+    plans = client.get_active_training_plans()
+
+    if not plans:
+        if args.json:
+            print(json.dumps({"plans": [], "count": 0}))
+        else:
+            print("No active training plans.")
+        return 0
+
+    # JSON output
+    if args.json:
+        data = {
+            "count": len(plans),
+            "plans": [p.to_dict() for p in plans],
+        }
+        print(json.dumps(data, indent=2, default=str))
+        return 0
+
+    # Human-readable output
+    print(f"\n=== Active Training Plans ({len(plans)}) ===\n")
+    for plan in plans:
+        print(f"[{plan.activity_type}] {plan.name}")
+        print(f"  Goal: {plan.goal}")
+        print(f"  Progress: Week {plan.current_week}/{plan.total_weeks} ({plan.progress_percentage:.1f}%)")
+        print(f"  Workouts: {plan.completed_workouts}/{plan.total_workouts} completed")
+        print(f"  Days remaining: {plan.days_remaining}")
+        if plan.next_workout:
+            print(f"  Next: {plan.next_workout.name}")
+        print()
+
+    return 0
+
+
+def cmd_training_plan_detail(args: argparse.Namespace) -> int:
+    """Handle training plan detail command."""
+    try:
+        client = GarminClient.from_saved_tokens()
+    except AuthenticationError:
+        print("Not logged in. Use 'garmer login' first.", file=sys.stderr)
+        return 1
+
+    if not args.plan_id:
+        print("Plan ID required. Use: garmer training-plan <plan-id>", file=sys.stderr)
+        return 1
+
+    plan = client.get_training_plan(args.plan_id)
+    if not plan:
+        print(f"Training plan {args.plan_id} not found.", file=sys.stderr)
+        return 1
+
+    # JSON output
+    if args.json:
+        print(json.dumps(plan.to_dict(), indent=2, default=str))
+        return 0
+
+    # Human-readable output
+    print(f"\n=== {plan.name} ===\n")
+    print(f"Goal: {plan.goal}")
+    print(f"Activity: {plan.activity_type}")
+    print(f"Difficulty: {plan.difficulty_level}")
+    print(f"Duration: {plan.total_weeks} weeks")
+    print(f"Start: {plan.start_date}, End: {plan.end_date}")
+    print(f"Days remaining: {plan.days_remaining}")
+    print(f"\nProgress: Week {plan.current_week}/{plan.total_weeks} ({plan.progress_percentage:.1f}%)")
+    print(f"Workouts: {plan.completed_workouts}/{plan.total_workouts} completed")
+
+    if plan.total_distance_km:
+        print(f"Total Distance: {plan.total_distance_km:.1f} km")
+    if plan.total_duration_hours:
+        print(f"Total Duration: {plan.total_duration_hours:.1f} hours")
+
+    if plan.workouts:
+        print(f"\n--- Workouts ({len(plan.workouts)}) ---\n")
+        for workout in plan.workouts:
+            status = "✓" if workout.completed else " "
+            print(f"[{status}] Day {workout.day_number}: {workout.name}")
+            if workout.duration_seconds:
+                mins = workout.duration_seconds // 60
+                print(f"    Duration: {mins} min", end="")
+            if workout.distance_meters:
+                km = workout.distance_meters / 1000
+                print(f", Distance: {km:.1f} km", end="")
+            if workout.intensity:
+                print(f", Intensity: {workout.intensity}", end="")
+            print()
+
+    return 0
+
+
+def cmd_training_templates(args: argparse.Namespace) -> int:
+    """Handle training templates command."""
+    try:
+        client = GarminClient.from_saved_tokens()
+    except AuthenticationError:
+        print("Not logged in. Use 'garmer login' first.", file=sys.stderr)
+        return 1
+
+    templates = client.get_training_templates(activity_type=args.activity)
+
+    if not templates:
+        if args.json:
+            print(json.dumps({"templates": [], "count": 0}))
+        else:
+            print("No training templates available.")
+        return 0
+
+    # JSON output
+    if args.json:
+        data = {
+            "count": len(templates),
+            "templates": [t.to_dict() for t in templates],
+        }
+        print(json.dumps(data, indent=2, default=str))
+        return 0
+
+    # Human-readable output
+    print(f"\n=== Available Training Templates ({len(templates)}) ===\n")
+    for template in templates:
+        popular = " (Popular)" if template.is_popular else ""
+        print(f"[{template.activity_type}] {template.name}{popular}")
+        print(f"  Goal: {template.goal}")
+        print(f"  Duration: {template.duration_weeks} weeks")
+        print(f"  Level: {template.difficulty_level}")
+        print(f"  Weekly hours: {template.weekly_hours:.1f}")
+        print(f"  ID: {template.template_id}")
+        print()
+
+    return 0
+
+
+def cmd_create_training_plan(args: argparse.Namespace) -> int:
+    """Handle create training plan command."""
+    try:
+        client = GarminClient.from_saved_tokens()
+    except AuthenticationError:
+        print("Not logged in. Use 'garmer login' first.", file=sys.stderr)
+        return 1
+
+    if not args.name or not args.template_id or not args.activity:
+        print(
+            "Required: --name, --template-id, --activity",
+            file=sys.stderr,
+        )
+        return 1
+
+    start_date = args.start_date or date.today()
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+
+    print(f"Creating training plan '{args.name}'...")
+
+    plan = client.create_training_plan(
+        name=args.name,
+        template_id=args.template_id,
+        start_date=start_date,
+        goal=args.goal or "Custom",
+        activity_type=args.activity,
+        difficulty_level=args.level or "intermediate",
+    )
+
+    if not plan:
+        print("Failed to create training plan.", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(plan.to_dict(), indent=2, default=str))
+    else:
+        print(f"\nTraining plan created successfully!")
+        print(f"Plan ID: {plan.plan_id}")
+        print(f"Name: {plan.name}")
+        print(f"Workouts: {plan.total_workouts}")
+        print(f"Start date: {plan.start_date}")
+
+    return 0
+
+
+def cmd_complete_workout(args: argparse.Namespace) -> int:
+    """Handle complete workout command."""
+    try:
+        client = GarminClient.from_saved_tokens()
+    except AuthenticationError:
+        print("Not logged in. Use 'garmer login' first.", file=sys.stderr)
+        return 1
+
+    if not args.plan_id or not args.workout_id:
+        print(
+            "Required: --plan-id and --workout-id",
+            file=sys.stderr,
+        )
+        return 1
+
+    completed_date = args.date or date.today()
+    if isinstance(completed_date, str):
+        completed_date = datetime.strptime(completed_date, "%Y-%m-%d").date()
+
+    success = client.complete_workout(
+        plan_id=args.plan_id,
+        workout_id=args.workout_id,
+        completed_date=completed_date,
+    )
+
+    if success:
+        print(f"Workout marked as completed!")
+        if not args.json:
+            return 0
+        print(json.dumps({"success": True, "message": "Workout completed"}))
+    else:
+        print("Failed to complete workout.", file=sys.stderr)
+        return 1
+
+    return 0
+
+
+
     """Handle update command - pull latest changes from git."""
     package_root = _get_package_root()
 
@@ -856,6 +1077,30 @@ def cmd_update(args: argparse.Namespace) -> int:
         )
         return 0
 
+    except subprocess.CalledProcessError as e:
+        print(f"Git error: {e.stderr if e.stderr else e}", file=sys.stderr)
+        return 1
+    except FileNotFoundError:
+        print("Git is not installed or not in PATH.", file=sys.stderr)
+        return 1
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    """Update garmer to latest version via git pull."""
+    package_root = _get_package_root()
+    if not package_root:
+        print("Cannot find package root.", file=sys.stderr)
+        return 1
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=package_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        print(result.stdout)
+        return 0
     except subprocess.CalledProcessError as e:
         print(f"Git error: {e.stderr if e.stderr else e}", file=sys.stderr)
         return 1
@@ -972,6 +1217,63 @@ def create_parser() -> argparse.ArgumentParser:
     )
     export_parser.add_argument("-o", "--output", help="Output file path")
 
+    # Training plans commands
+    training_plans_parser = subparsers.add_parser(
+        "training-plans", help="List active training plans"
+    )
+    training_plans_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # Training plan detail command
+    training_plan_parser = subparsers.add_parser(
+        "training-plan", help="Show training plan details"
+    )
+    training_plan_parser.add_argument("plan_id", help="Training plan ID")
+    training_plan_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # Training templates command
+    templates_parser = subparsers.add_parser(
+        "training-templates", help="List available training templates"
+    )
+    templates_parser.add_argument(
+        "-a",
+        "--activity",
+        help="Filter by activity type (e.g., running, cycling)",
+    )
+    templates_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # Create training plan command
+    create_plan_parser = subparsers.add_parser(
+        "create-plan", help="Create a new training plan"
+    )
+    create_plan_parser.add_argument("--name", required=True, help="Plan name")
+    create_plan_parser.add_argument(
+        "--template-id", required=True, help="Template ID (from training-templates)"
+    )
+    create_plan_parser.add_argument(
+        "--activity", required=True, help="Activity type (running, cycling, etc.)"
+    )
+    create_plan_parser.add_argument(
+        "--goal", help="Training goal (5K, Half Marathon, Marathon, etc.)"
+    )
+    create_plan_parser.add_argument(
+        "--start-date", help="Start date (YYYY-MM-DD), defaults to today"
+    )
+    create_plan_parser.add_argument(
+        "--level",
+        choices=["beginner", "intermediate", "advanced"],
+        help="Difficulty level",
+    )
+    create_plan_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # Complete workout command
+    complete_parser = subparsers.add_parser("complete-workout", help="Mark workout as complete")
+    complete_parser.add_argument("--plan-id", required=True, help="Training plan ID")
+    complete_parser.add_argument("--workout-id", required=True, help="Workout ID")
+    complete_parser.add_argument(
+        "-d", "--date", help="Completion date (YYYY-MM-DD), defaults to today"
+    )
+    complete_parser.add_argument("--json", action="store_true", help="Output as JSON")
+
     # Update command
     subparsers.add_parser("update", help="Update garmer to latest version (git pull)")
 
@@ -1002,6 +1304,11 @@ def main() -> int:
         "activity": cmd_activity,
         "snapshot": cmd_snapshot,
         "export": cmd_export,
+        "training-plans": cmd_training_plans,
+        "training-plan": cmd_training_plan_detail,
+        "training-templates": cmd_training_templates,
+        "create-plan": cmd_create_training_plan,
+        "complete-workout": cmd_complete_workout,
         "update": cmd_update,
         "version": cmd_version,
     }

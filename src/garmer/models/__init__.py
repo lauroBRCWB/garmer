@@ -10,6 +10,12 @@ from garmer.models.user import UserProfile, UserSettings
 from garmer.models.body_composition import BodyComposition, Weight
 from garmer.models.hydration import HydrationData
 from garmer.models.respiration import RespirationData
+from garmer.models.training_plan import (
+    TrainingPlan,
+    TrainingPlanWorkout,
+    TrainingPlanTemplate,
+    WorkoutSegment,
+)
 
 __all__ = [
     # Activity
@@ -45,4 +51,9 @@ __all__ = [
     "HydrationData",
     # Respiration
     "RespirationData",
+    # Training Plans
+    "TrainingPlan",
+    "TrainingPlanWorkout",
+    "TrainingPlanTemplate",
+    "WorkoutSegment",
 ]

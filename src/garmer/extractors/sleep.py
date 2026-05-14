@@ -37,6 +37,11 @@ class SleepExtractor(BaseExtractor[SleepData]):
                 f"nonSleepBufferMinutes=60&date={date_str}",
             )
             if response:
+                # Unwrap the API response - Garmin wraps sleep data in dailySleepDTO
+                payload = response.get("dailySleepDTO") if isinstance(response, dict) else None
+                if payload:
+                    return SleepData.from_garmin_response(payload)
+                # Fall back to treating response as direct payload
                 return SleepData.from_garmin_response(response)
             return None
         except Exception as e:

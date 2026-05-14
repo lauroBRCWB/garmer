@@ -19,6 +19,7 @@ from garmer.extractors import (
     SleepExtractor,
     StepsExtractor,
     StressExtractor,
+    TrainingPlanExtractor,
     UserExtractor,
 )
 from garmer.models import (
@@ -31,6 +32,9 @@ from garmer.models import (
     SleepData,
     StepsData,
     StressData,
+    TrainingPlan,
+    TrainingPlanTemplate,
+    TrainingPlanWorkout,
     UserProfile,
     Weight,
 )
@@ -86,6 +90,7 @@ class GarminClient:
         self._daily = DailyExtractor(self.auth)
         self._body = BodyExtractor(self.auth)
         self._user = UserExtractor(self.auth)
+        self._training_plans = TrainingPlanExtractor(self.auth)
 
     @classmethod
     def from_credentials(
@@ -604,6 +609,119 @@ class GarminClient:
             logger.warning(f"Failed to get stress stats: {e}")
 
         return report
+
+    # Training Plan Methods
+    # -------------------------------------------------------------------------
+
+    def get_active_training_plans(self) -> list[TrainingPlan]:
+        """Get active training plans."""
+        return self._training_plans.get_active_plans()
+
+    def get_training_plan(self, plan_id: str) -> TrainingPlan | None:
+        """Get a specific training plan by ID."""
+        return self._training_plans.get_plan(plan_id)
+
+    def get_training_plan_history(self) -> list[TrainingPlan]:
+        """Get all completed and in-progress training plans."""
+        return self._training_plans.get_plan_history()
+
+    def create_training_plan(
+        self,
+        name: str,
+        template_id: str,
+        start_date: date,
+        goal: str,
+        activity_type: str,
+        difficulty_level: str = "intermediate",
+    ) -> TrainingPlan | None:
+        """
+        Create a new training plan.
+
+        Args:
+            name: Plan name
+            template_id: Template to use (from get_training_templates)
+            start_date: When to start the plan
+            goal: Training goal (e.g., "5K", "Half Marathon", "Marathon")
+            activity_type: Type of activity (e.g., "running", "cycling")
+            difficulty_level: "beginner", "intermediate", or "advanced"
+
+        Returns:
+            Created TrainingPlan or None
+        """
+        return self._training_plans.create_plan(
+            name=name,
+            template_id=template_id,
+            start_date=start_date,
+            goal=goal,
+            activity_type=activity_type,
+            difficulty_level=difficulty_level,
+        )
+
+    def update_training_plan(
+        self,
+        plan_id: str,
+        name: str | None = None,
+        difficulty_level: str | None = None,
+        start_date: date | None = None,
+    ) -> TrainingPlan | None:
+        """Update an existing training plan."""
+        return self._training_plans.update_plan(
+            plan_id=plan_id,
+            name=name,
+            difficulty_level=difficulty_level,
+            start_date=start_date,
+        )
+
+    def delete_training_plan(self, plan_id: str) -> bool:
+        """Delete a training plan."""
+        return self._training_plans.delete_plan(plan_id)
+
+    def complete_workout(
+        self,
+        plan_id: str,
+        workout_id: str,
+        completed_date: date | None = None,
+    ) -> bool:
+        """Mark a workout as completed."""
+        return self._training_plans.complete_workout(
+            plan_id=plan_id,
+            workout_id=workout_id,
+            completed_date=completed_date,
+        )
+
+    def update_workout(
+        self, plan_id: str, workout_id: str, **kwargs
+    ) -> TrainingPlanWorkout | None:
+        """Update a workout in a training plan."""
+        return self._training_plans.update_workout(
+            plan_id=plan_id,
+            workout_id=workout_id,
+            **kwargs,
+        )
+
+    def get_training_templates(
+        self, activity_type: str | None = None
+    ) -> list[TrainingPlanTemplate]:
+        """
+        Get available training plan templates.
+
+        Args:
+            activity_type: Filter by activity type (optional)
+
+        Returns:
+            List of available templates
+        """
+        return self._training_plans.get_templates(activity_type=activity_type)
+
+    def get_training_template(self, template_id: str) -> TrainingPlanTemplate | None:
+        """Get a specific training template by ID."""
+        return self._training_plans.get_template(template_id)
+
+    def get_training_plan_stats(self, plan_id: str) -> dict[str, Any]:
+        """Get statistics for a training plan."""
+        return self._training_plans.get_plan_stats(plan_id)
+
+    # -------------------------------------------------------------------------
 
     def export_data(
         self,

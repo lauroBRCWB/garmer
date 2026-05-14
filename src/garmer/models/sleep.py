@@ -159,6 +159,12 @@ class SleepData(GarminBaseModel):
             overall_score = quality_score = recovery_score = None
             rem_score = light_score = deep_score = None
 
+        # Handle sleepNeed which can be either an integer or a dict
+        sleep_need = data.get("sleepNeed")
+        if isinstance(sleep_need, dict):
+            # Extract value if it's a nested object
+            sleep_need = sleep_need.get("value") or sleep_need.get("amount")
+
         return cls(
             sleep_id=data.get("id"),
             user_profile_pk=data.get("userProfilePK"),
@@ -195,7 +201,7 @@ class SleepData(GarminBaseModel):
             sleep_phases=sleep_phases,
             sleep_movements=sleep_movements,
             sleep_feedback=data.get("sleepFeedback"),
-            sleep_need=data.get("sleepNeed"),
+            sleep_need=sleep_need,
             raw_data=data,
         )
 

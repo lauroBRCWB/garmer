@@ -8,6 +8,7 @@ from garmer.extractors.steps import StepsExtractor
 from garmer.extractors.stress import StressExtractor
 from garmer.extractors.body import BodyExtractor
 from garmer.extractors.user import UserExtractor
+from garmer.extractors.training_plans import TrainingPlanExtractor
 
 __all__ = [
     "ActivityExtractor",
@@ -18,4 +19,5 @@ __all__ = [
     "StressExtractor",
     "BodyExtractor",
     "UserExtractor",
+    "TrainingPlanExtractor",
 ]
